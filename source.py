@@ -2,13 +2,15 @@
 
 # 3. Obfuscated code
 
-# 5. Check for unsual condition
-
 import random
+import os
 import string
 import hashlib
 import time
-import cryptography.fernet
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+import base64
 
 # 1. Hash key for min 100 bit
 # Hashing
@@ -16,7 +18,6 @@ def hashing(password):
     hash = hashlib.md5(password.encode())
     return hash.hexdigest()
 
-# 
 def pass_input(choice):
     password = input('Input password: ')
 
@@ -26,9 +27,8 @@ def pass_input(choice):
     newhash = hashing(password)
 
     if choice == '1':
-                
-        if storedhash != '':
-            ans = input('Password is already stored. Create new password? (y/n) ')
+        if storedhash == '':
+            ans = input('Password is already stored. Create new password? (Y/n) ')
             if ans == 'n' or ans == 'N':
                 return
 
@@ -37,39 +37,64 @@ def pass_input(choice):
 
     if choice == '2':
         # Check if the key is matching
+        if storedhash == '':
+            print('No password saved!')
+
         if newhash != storedhash:
             print('Wrong password')
             return
+        else:
+            print('Correct')
 
-    return password
-
-
+# 2. Encrypt new version each time
 def add_timestamp(filepath):
     nowtime = time.time()
 
     with open(filepath, 'a') as f:
-        f.write(nowtime)
+        f.write(str(nowtime))
 
 def del_timestamp(filepath):
     with open(filepath, 'r') as fr:
-        mess = fr.read()
+        mess = fr.readlines()
 
-    mess = mess[-18:]
+    mess = mess[:-1]
 
     with open(filepath, 'w') as fw:
-        fw.write(mess)
-     
-# 2. Encrypt new version each time
+        fw.writelines(mess)
+
 # File encryption/decryption
+def generate_passkey():
+    with open('pass.txt', 'rb') as f:
+        password = f.read() 
+
+    salt = os.urandom(16)
+
+    kdf = PBKDF2HMAC(
+
+        algorithm=hashes.SHA256(),
+
+        length=32,
+
+        salt=salt,
+
+        iterations=480000,
+
+    )
+
+    return base64.urlsafe_b64encode(kdf.derive(password))
+
 def encrypt(filepath):
     add_timestamp(filepath)
 
     with open(filepath, 'rb') as fr:
         data = fr.read()
-
-    with open('pass.txt', 'rb') as fp:
-        fernet = cryptography.fernet.Fernet(fp.read())
     
+    key = generate_passkey()
+
+    with open('key.txt', 'wb') as fk:
+        fk.write(key)
+
+    fernet = Fernet(key)
     result = fernet.encrypt(data)
 
     with open(filepath, 'wb') as fw:
@@ -79,9 +104,10 @@ def decrypt(filepath):
     with open(filepath, 'rb') as f:
         data = f.read()
 
-    with open('pass.txt', 'rb') as fp:
-        fernet = cryptography.fernet.Fernet(fp.read())
-    
+    with open('key.txt', 'rb') as rk:
+        key = rk.read()
+
+    fernet = Fernet(key)
     result = fernet.decrypt(data)
 
     with open(filepath, 'wb') as fw:
@@ -118,7 +144,8 @@ def main():
     filepath = input('File address (ex: /folder/file.txt): ')
 
     with open(filepath, 'r') as f:
-        if f.read() == '':
+        data = f.read()
+        if not data:
             print('This file is empty')
             return
 
@@ -132,10 +159,10 @@ def main():
     while choice > '2' and choice < '1':
         choice = input('Invalid input. New choice: ')
 
-    # Nhap password
+    # Input password
     pass_input(choice)
 
-    if choice == 1:
+    if choice == '1':
         # Encrypt
         encrypt(filepath)
     else:

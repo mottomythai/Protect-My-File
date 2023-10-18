@@ -1,7 +1,3 @@
-# Yeu cau: 
-
-# 3. Obfuscated code
-
 import random
 import os
 import string
@@ -12,8 +8,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import base64
 
-# 1. Hash key for min 100 bit
-# Hashing
+# Min 100 bit hash
 def hashing(password):
     hash = hashlib.md5(password.encode())
     return hash.hexdigest()
@@ -27,7 +22,7 @@ def pass_input(choice):
     newhash = hashing(password)
 
     if choice == '1':
-        if storedhash == '':
+        if os.path.getsize('pass.txt') != 1:
             ans = input('Password is already stored. Create new password? (Y/n) ')
             if ans == 'n' or ans == 'N':
                 return
@@ -37,16 +32,15 @@ def pass_input(choice):
 
     if choice == '2':
         # Check if the key is matching
-        if storedhash == '':
+        if os.path.getsize('pass.txt') == 1:
             print('No password saved!')
+            return -1
 
         if newhash != storedhash:
             print('Wrong password')
-            return
-        else:
-            print('Correct')
+            return -1
 
-# 2. Encrypt new version each time
+# New encrypted file content each time
 def add_timestamp(filepath):
     nowtime = time.time()
 
@@ -58,7 +52,7 @@ def del_timestamp(filepath):
         mess = fr.readlines()
 
     mess = mess[:-1]
-
+    
     with open(filepath, 'w') as fw:
         fw.writelines(mess)
 
@@ -100,6 +94,8 @@ def encrypt(filepath):
     with open(filepath, 'wb') as fw:
         fw.write(result)
 
+    print('File is encrypted!')
+
 def decrypt(filepath):
     with open(filepath, 'rb') as f:
         data = f.read()
@@ -115,8 +111,9 @@ def decrypt(filepath):
 
     del_timestamp(filepath)
 
-# 4. Required OTP anytime logins
-# OTP
+    print('File is decrypted!')
+
+# Required OTP anytime the program run
 def OTP():
     with open('otp.txt', 'w') as f:
         f.write(''.join(random.choice(string.ascii_lowercase + string.ascii_uppercase + string.digits) for _ in range(8)))
@@ -133,9 +130,8 @@ def input_otp():
     else:
         return False
     
-
+# Main program
 def main():
-    # Main program
     print('Protect My File')
     OTP()
     if input_otp() == False:
@@ -145,7 +141,8 @@ def main():
 
     with open(filepath, 'r') as f:
         data = f.read()
-        if not data:
+
+    if data == '':
             print('This file is empty')
             return
 
@@ -155,18 +152,19 @@ def main():
     print('--------------------------------')
     choice = input('Choice: ')
 
-    # Neu nhu choice khong phu hop 
+    # Invalid choice
     while choice > '2' and choice < '1':
         choice = input('Invalid input. New choice: ')
 
     # Input password
-    pass_input(choice)
+    flag = pass_input(choice)
+
+    if flag == -1:
+        return
 
     if choice == '1':
-        # Encrypt
         encrypt(filepath)
     else:
-        # Decrypt
         decrypt(filepath)
 
 
